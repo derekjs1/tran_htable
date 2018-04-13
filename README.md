@@ -2,8 +2,11 @@
 
 I have included the files I modified to make this thing work.
 Place these files in: <rstm path>/bench/
-Tran_NB_Hashtable.hpp
-main.hpp
+  
+1. Tran_NB_Hashtable.hpp
+
+2. main.cpp
+
 
 Take the "_c++11" out of filename for the corresponding files.
 These should go right in the root rsmt directory. 
