@@ -1,7 +1,7 @@
 # tran_htable
 
 I have included the files I modified to make this thing work.
-Place these files in: <rstm path>/bench/
+Place these files in: [rstm path]/bench/
   
 1. Tran_NB_Hashtable.hpp
 
