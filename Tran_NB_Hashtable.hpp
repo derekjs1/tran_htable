@@ -136,11 +136,13 @@ bool NB_Hashtable::Lookup(WORD_SIZE_TYPE k TM_ARG)
 {
     // hash something
     WORD_SIZE_TYPE max, temp, h;	
-    //TM_WRITE(h, hash h from k);
-    TM_WRITE(max, GetProbeBound(h TM_PARAM));
-    TM_WRITE(temp, (k | MEMBER));
 
     h = std::hash<WORD_SIZE_TYPE> {}(k);
+    //TM_WRITE(h, hash h from k);
+    TM_WRITE(max, GetProbeBound(h TM_PARAM));
+    //TM_WRITE(temp, (k | MEMBER));
+
+    temp = (k | MEMBER);
     //WORD_SIZE_TYPE max = GetProbeBound(h);
     //WORD_SIZE_TYPE temp = (k | MEMBER);
 
@@ -303,12 +305,23 @@ void NB_Hashtable::ConditionallyRaiseBound(WORD_SIZE_TYPE h, WORD_SIZE_TYPE inde
 {
     WORD_SIZE_TYPE old_bound, new_bound;
 
-    do
-    {
-        TM_WRITE(bounds[h % size], old_bound);
+    while(true){
+        TM_WRITE(old_bound, bounds[h%size]);
         new_bound = std::max(old_bound, index);
+        if (TM_READ(bounds[h%size]) == old_bound)
+        {
+            TM_WRITE(bounds[h%size], new_bound);
+            break;
+        }
     }
-    while (TM_READ(bounds[h%size])== old_bound);
+
+    // do
+    // {
+    //     TM_WRITE(old_bound, bounds[h % size]);
+    //     new_bound = std::max(old_bound, index);
+    // }
+    // while (TM_READ(bounds[h%size]) != old_bound);
+    // TM_WRITE(bounds[h % size], new_bound);
     //while (!std::atomic_compare_exchange_weak(&(bounds[h % size]), &old_bound, new_bound));
 }
 

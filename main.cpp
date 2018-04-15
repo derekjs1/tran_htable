@@ -43,6 +43,7 @@ void bench_init(){
 	for (uint64_t w = 0; w < CFG.elements; w += 2)
 		NB_SET->Insert(w TM_PARAM);
 	TM_END_FAST_INITIALIZATION();
+	std::cout << "We're on our way." << std::endl;
 }
 
 void bench_test(uintptr_t, u_int32_t* seed)
