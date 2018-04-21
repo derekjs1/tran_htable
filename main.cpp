@@ -1,5 +1,6 @@
 
-#include "Tran_NB_Hashtable.hpp"
+// #include "Tran_NB_Hashtable.hpp"
+#include "t_htbl.hpp"
 #include <bitset>
 #include <api/api.hpp>
 #include <cstdlib>
@@ -40,31 +41,59 @@ void bench_init(){
 	NB_SET->Init();
 
 	TM_BEGIN_FAST_INITIALIZATION();
-	for (uint64_t w = 0; w < CFG.elements; w += 2)
+	// for (uint64_t w = 0; w < 2; w += 2){
+	for (auto w = 0; w < 2; w += 2){
 		NB_SET->Insert(w TM_PARAM);
+
+		std::cout << " VALUE INSERT: " << w << std::endl;
+	}
 	TM_END_FAST_INITIALIZATION();
 	std::cout << "We're on our way." << std::endl;
 }
 
 void bench_test(uintptr_t, u_int32_t* seed)
 {
-	uint64_t val = rand_r(seed) %CFG.elements;
-	uint64_t act = rand_r(seed) % 100;
-	if (act < CFG.lookpct){
+	// uint64_t val = rand_r(seed) %CFG.elements;
+	// uint64_t act = rand_r(seed) % 100;
+
+	auto val = rand_r(seed) %CFG.elements;
+	// auto act = rand_r(seed) % 100;
+
+
+
+	std::cout<< "Val " << val << std::endl;
 		TM_BEGIN(atomic){
-			NB_SET->Lookup(val TM_PARAM);
+			if (NB_SET->Insert(val TM_PARAM))
+				std::cout << "Inserting " << val << std::endl;
+		}TM_END;
+
+
+		TM_BEGIN(atomic){
+			if(NB_SET->Lookup(val TM_PARAM))
+				std::cout << "Looking " << val << std::endl;
 		} TM_END;
-	}
-	else if( act < CFG.inspct){
-		TM_BEGIN(atomic){
-			NB_SET->Insert(val TM_PARAM);
-		}TM_END;
-	}
-	else {
+
 		TM_BEGIN (atomic){
-			NB_SET->Erase(val TM_PARAM);
+			if(NB_SET->Erase(val TM_PARAM))
+				std::cout << "Get rid of " << val << std::endl;
 		}TM_END;
-	}
+
+
+	// if (act < CFG.lookpct){
+	// 	TM_BEGIN(atomic){
+	// 		NB_SET->Lookup(val TM_PARAM);
+	// 	} TM_END;
+	// }
+	// else if( act < CFG.inspct){
+	// 	TM_BEGIN(atomic){
+	// 		NB_SET->Insert(val TM_PARAM);
+	// 	}TM_END;
+	// }
+	// else {
+	// 	TM_BEGIN (atomic){
+	// 		NB_SET->Erase(val TM_PARAM);
+	// 	}TM_END;
+	// }
 }
 
 bool bench_verify() { return NB_SET->isSane(); }

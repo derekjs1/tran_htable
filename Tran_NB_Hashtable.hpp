@@ -139,16 +139,28 @@ bool NB_Hashtable::Lookup(WORD_SIZE_TYPE k TM_ARG)
 
     h = std::hash<WORD_SIZE_TYPE> {}(k);
     //TM_WRITE(h, hash h from k);
-    TM_WRITE(max, GetProbeBound(h TM_PARAM));
+    //TM_WRITE(max, GetProbeBound(h TM_PARAM));
     //TM_WRITE(temp, (k | MEMBER));
 
+    max = GetProbeBound(h TM_PARAM);
+
     temp = (k | MEMBER);
+
+    std::cout<< "H " << h << "\n" << "MAX " << max << std::endl;
+
     //WORD_SIZE_TYPE max = GetProbeBound(h);
     //WORD_SIZE_TYPE temp = (k | MEMBER);
 
     // i is WORD_SIZE_TYPE so it can be passed to Bucket().
     for (WORD_SIZE_TYPE i = 0; i <= max; i++)
     {
+        WORD_SIZE_TYPE t = *Bucket(h, i TM_PARAM);
+
+    // std::cout << "Temp address: " << t << std::endl;
+
+    // std::cout << "Temp address: " << &t << std::endl;
+
+
         // std::cout << (Bucket(h, i) & ~MEMBER) << std::endl;
         // if (TM_READ(Bucket(h, i)) == TM_READ(temp))
         if (*Bucket(h, i TM_PARAM) == temp)
@@ -174,9 +186,16 @@ bool NB_Hashtable::Insert(WORD_SIZE_TYPE k TM_ARG)
     // Attempt to change bucket entry from state empty (00) to busy (01).
     temp = EMPTY;
 
-    while(*Bucket (h, i TM_PARAM) == BUSY)
+    while(true)
     //while (!std::atomic_compare_exchange_weak(Bucket(h, i), &temp, BUSY))
     {
+
+
+        if (*Bucket (h, i TM_PARAM) == temp){
+            TM_WRITE(*Bucket(h,i TM_PARAM), (WORD_SIZE_TYPE)BUSY );
+            break;
+        }
+
         i++;
         if (i >= size)
       	{
@@ -201,10 +220,14 @@ bool NB_Hashtable::Insert(WORD_SIZE_TYPE k TM_ARG)
         
 	    TM_WRITE(*Bucket(h,i TM_PARAM), temp);
 	//Bucket(h, i) = temp;
+
+        std::cout << "H " << h << " I " << i << std::endl;
         ConditionallyRaiseBound(h, i TM_PARAM);
 
         // Scan through probe sequence
         WORD_SIZE_TYPE max = GetProbeBound(h TM_PARAM);
+
+        std::cout << "maximum " << max << std::endl;
         for (WORD_SIZE_TYPE j = 0; j < max; j++)
         {
             if (j != i)
@@ -233,12 +256,18 @@ bool NB_Hashtable::Insert(WORD_SIZE_TYPE k TM_ARG)
                 }
             }
         }
+
+
+        if (*Bucket(h, i TM_PARAM) == temp)
+            TM_WRITE(*Bucket(h, i  TM_PARAM), (k|MEMBER));
+
+
         // attempt to set bit of <key, state> to member (11)
     }
     // while (!std::atomic_compare_exchange_weak(Bucket(h,i),
     //         &temp,
     //         (k | MEMBER)));
-    while(*Bucket (h, i TM_PARAM) == (k | MEMBER));
+    while(*Bucket (h, i TM_PARAM) != (k | MEMBER));
 
     // std::bitset<64> tempBits((k | MEMBER));
     // std::cout << tempBits.to_string() << std::endl;
@@ -250,18 +279,26 @@ bool NB_Hashtable::Insert(WORD_SIZE_TYPE k TM_ARG)
 TM_CALLABLE
 bool NB_Hashtable::Erase(WORD_SIZE_TYPE k TM_ARG)
 {
-    WORD_SIZE_TYPE max;
     WORD_SIZE_TYPE h = std::hash<WORD_SIZE_TYPE> {}(k);
-
-    TM_WRITE(max, GetProbeBound(h TM_PARAM));
     // scan probe sequence
     WORD_SIZE_TYPE temp = (k | MEMBER);
+WORD_SIZE_TYPE max = GetProbeBound(h TM_PARAM);
+
+    std::cout << "MAX " << max << std::endl;
+
+    std::cout << "K " << k << std::endl;
+    std::cout << "&K " << &k << std::endl;
+    std::cout << "MEM " << MEMBER << std::endl;
+
 
     for (WORD_SIZE_TYPE i = 0; i <= max; i++)
     {
         // remove a copy of <k, member>
         // May have to modify this to specify that k's status must be member
         // if that is not a pre-condition for Erase().
+        WORD_SIZE_TYPE t = *Bucket(h,i TM_PARAM);
+    std::cout << "temp " << temp << std::endl;
+        std::cout << " I " << i << "/n T " << t <<std::endl;
         if (*Bucket(h, i TM_PARAM) == /*k*/ temp)
         {
             // Set status bit to busy (01)
@@ -294,7 +331,7 @@ void NB_Hashtable::InitProbeBound(WORD_SIZE_TYPE h)
 TM_CALLABLE
 WORD_SIZE_TYPE NB_Hashtable::GetProbeBound(WORD_SIZE_TYPE h TM_ARG)
 {
-    return TM_READ(bounds[h % size]);
+    return bounds[h % size];
 }
 
 // NOTE FOR DEVELOPER (JON): Index has to be WORD_SIZE_TYPE (uint64_t) instead
@@ -305,12 +342,21 @@ void NB_Hashtable::ConditionallyRaiseBound(WORD_SIZE_TYPE h, WORD_SIZE_TYPE inde
 {
     WORD_SIZE_TYPE old_bound, new_bound;
 
+    std::cout << "H " << h << " I::: " << std::endl;
+    std::cout << "index " << index << std::endl;
+
+    std::cout << "OLD " << old_bound << "  new_BOU " << new_bound << std::endl;
+
+    old_bound = bounds[h%size];
+    new_bound = std::max(old_bound, index);
+    
+    std::cout << "OLD " << old_bound << "  new_BOU " << new_bound << std::endl;
     while(true){
-        TM_WRITE(old_bound, bounds[h%size]);
+        old_bound = bounds[h%size];
         new_bound = std::max(old_bound, index);
-        if (TM_READ(bounds[h%size]) == old_bound)
+        if (bounds[h%size] == old_bound)
         {
-            TM_WRITE(bounds[h%size], new_bound);
+            bounds[h%size]= new_bound;
             break;
         }
     }
@@ -331,12 +377,17 @@ void NB_Hashtable::ConditionallyLowerBound(WORD_SIZE_TYPE h, WORD_SIZE_TYPE inde
 {
     WORD_SIZE_TYPE bound, expectedFalse, expectedTrue;
 
-    TM_WRITE(bound,bounds[h % size]);
+    //TM_WRITE(bound,bounds[h % size]);
+
+    bound = bounds [h % size];
+
     // If scanning bit is set, unset it
     if ((bound & SCAN_TRUE) == (SCAN_TRUE))
     {
-        if (TM_READ(bounds[h % size])== bound)
-            TM_WRITE(bounds[h % size], (bound & ~SCAN_TRUE));
+        if(bounds[h%size] == bound)
+        // if (TM_READ(bounds[h % size])== bound)
+            // TM_WRITE(bounds[h % size], (bound & ~SCAN_TRUE));
+            bounds[h % size] = (bound & ~SCAN_TRUE);
         //std::atomic_compare_exchange_weak(&bounds[h % size], &bound, (bound & ~SCAN_TRUE));
     }
 
@@ -346,8 +397,12 @@ void NB_Hashtable::ConditionallyLowerBound(WORD_SIZE_TYPE h, WORD_SIZE_TYPE inde
         while (true)
         //while (std::atomic_compare_exchange_weak(&bounds[h % size], &expectedFalse, (index | SCAN_TRUE)))
         {
-            if (TM_READ(bounds[h%size]) == expectedFalse){
-                TM_WRITE(bounds[h%size], (index | SCAN_TRUE));
+            // if (TM_READ(bounds[h%size]) == expectedFalse){
+            //     TM_WRITE(bounds[h%size], (index | SCAN_TRUE));
+            //     break;
+            // }
+            if ((bounds[h%size]) == expectedFalse){
+                bounds[h%size] = (index | SCAN_TRUE);
                 break;
             }
 
@@ -358,9 +413,11 @@ void NB_Hashtable::ConditionallyLowerBound(WORD_SIZE_TYPE h, WORD_SIZE_TYPE inde
             }
             expectedTrue = index | SCAN_TRUE;
 
-            if(TM_READ(bounds[h%size])== expectedTrue);
+            // if(TM_READ(bounds[h%size])== expectedTrue);
+            if(bounds[h%size] == expectedTrue);
             {
-                TM_WRITE(bounds[h%size], (i & ~SCAN_TRUE));
+                // TM_WRITE(bounds[h%size], (i & ~SCAN_TRUE));
+                bounds[h%size] = (i & ~SCAN_TRUE);
             }
             //std::atomic_compare_exchange_strong(&bounds[h % size], &expectedTrue, (i & ~SCAN_TRUE));
         }
@@ -388,7 +445,8 @@ bool NB_Hashtable::DoesBucketContainCollisions(WORD_SIZE_TYPE h, WORD_SIZE_TYPE 
 {
     // <state, key>
     WORD_SIZE_TYPE k;
-    TM_WRITE(k, *Bucket(h, index TM_PARAM));
+    // TM_WRITE(k, *Bucket(h, index TM_PARAM));
+    k = *Bucket(h, index TM_PARAM);
     // Recover key from <state, key>
     WORD_SIZE_TYPE key = k & ~MEMBER;
     return ((k != EMPTY) && (std::hash<WORD_SIZE_TYPE> {}(key) == h));
