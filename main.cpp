@@ -1,5 +1,4 @@
 
-// #include "Tran_NB_Hashtable.hpp"
 #include "t_htbl.hpp"
 #include <bitset>
 #include <api/api.hpp>
@@ -25,10 +24,8 @@
 #include "bmconfig.hpp"
 
 /**
- *  We provide the option to build the entire benchmark in a single
- *  source. The bmconfig.hpp include defines all of the important functions
- *  that are implemented in this file, and bmharness.cpp defines the
- *  execution infrastructure.
+ * Included as part of what was present from the other bench marks which this
+ * attempts to replicate the use of the bench mark system.
  */
 #ifdef SINGLE_SOURCE_BUILD
 #include "bmharness.cpp"
@@ -41,11 +38,8 @@ void bench_init(){
 	NB_SET->Init();
 
 	TM_BEGIN_FAST_INITIALIZATION();
-	// for (uint64_t w = 0; w < 2; w += 2){
-	for (auto w = 0; w < 2; w += 2){
+	for (u_int32_t w = 0; w < CFG.elements; w += 2){
 		NB_SET->Insert(w TM_PARAM);
-
-		std::cout << " VALUE INSERT: " << w << std::endl;
 	}
 	TM_END_FAST_INITIALIZATION();
 	std::cout << "We're on our way." << std::endl;
@@ -53,68 +47,30 @@ void bench_init(){
 
 void bench_test(uintptr_t, u_int32_t* seed)
 {
-	// uint64_t val = rand_r(seed) %CFG.elements;
-	// uint64_t act = rand_r(seed) % 100;
 
-	auto val = rand_r(seed) %CFG.elements;
-	// auto act = rand_r(seed) % 100;
+	u_int32_t val = rand_r(seed) %CFG.elements;
+	u_int32_t act = rand_r(seed) % 100;
 
-
-
-	std::cout<< "Val " << val << std::endl;
+	if (act < CFG.lookpct){
 		TM_BEGIN(atomic){
-			if (NB_SET->Insert(val TM_PARAM))
-				std::cout << "Inserting " << val << std::endl;
-		}TM_END;
-
-
-		TM_BEGIN(atomic){
-			if(NB_SET->Lookup(val TM_PARAM))
-				std::cout << "Looking " << val << std::endl;
+			NB_SET->Lookup(val TM_PARAM);
 		} TM_END;
-
-		TM_BEGIN (atomic){
-			if(NB_SET->Erase(val TM_PARAM))
-				std::cout << "Get rid of " << val << std::endl;
+	}
+	else if( act < CFG.inspct){
+		TM_BEGIN(atomic){
+			NB_SET->Insert(val TM_PARAM);
 		}TM_END;
-
-
-	// if (act < CFG.lookpct){
-	// 	TM_BEGIN(atomic){
-	// 		NB_SET->Lookup(val TM_PARAM);
-	// 	} TM_END;
-	// }
-	// else if( act < CFG.inspct){
-	// 	TM_BEGIN(atomic){
-	// 		NB_SET->Insert(val TM_PARAM);
-	// 	}TM_END;
-	// }
-	// else {
-	// 	TM_BEGIN (atomic){
-	// 		NB_SET->Erase(val TM_PARAM);
-	// 	}TM_END;
-	// }
+	}
+	else {
+		TM_BEGIN (atomic){
+			NB_SET->Erase(val TM_PARAM);
+		}TM_END;
+	}
 }
 
 bool bench_verify() { return NB_SET->isSane(); }
 
 void bench_reparse()
 {
-    if (CFG.bmname == "") CFG.bmname = "List";
+    if (CFG.bmname == "") CFG.bmname = "Open Addressing Hash Table";
 }
-/*
-
-int main (){
-
-	TM_SYS_INIT();
-	TM_THREAD_INIT();
-
-	NB_Hashtable* h = new NB_Hashtable();
-	h->Init();
-
-	TM_SYS_SHUTDOWN();
-
-	return 0;
-}
-
-*/

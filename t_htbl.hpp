@@ -37,9 +37,6 @@ public:
 
     bool isSane();
 
-    // TODO: Test functions?
-    //void printbuckets();
-
 private:
     TM_CALLABLE
     int quad_pos(int h, int index);
@@ -67,8 +64,9 @@ private:
     WST* buckets;
 };
 
+// Fixed size: ancticipated size based on half the number of transactions to occur.
 NB_Hashtable::NB_Hashtable(){
-    size = 1024;
+    size = 262144;
     bounds = new WST[size];
     buckets = new WST[size];
 }
@@ -81,6 +79,7 @@ void NB_Hashtable::Init(){
     }
 }
 
+// Validation function that is required for the use of the bmharness.cpp main
 bool NB_Hashtable::isSane(){
     for (auto i = 0; i < size; i++){
         if (!buckets[i].first != (i%size))
@@ -96,17 +95,12 @@ bool NB_Hashtable::Insert(int k TM_ARG)
     
     WST h = make_pair((k % size), EMPTY);
     WST k_ins, k_bus, k_mem, k_emp;
-    //max = (GetProbeBound(h TM_PARAM)).first;
-    // Attempt to change bucket entry from state empty (00) to busy (01).
-    // temp = EMPTY;
-
+  
     while(true)
-    //while (!std::atomic_compare_exchange_weak(Bucket(h, i), &temp, BUSY))
     {
         pos = quad_pos(h.first, i);
 
         if (buckets[pos].second == EMPTY){
-            // TM_WRITE(Bucket(h,i TM_PARAM).second, BUSY);
             buckets[pos].second = BUSY;
             break;
         }
@@ -136,10 +130,6 @@ bool NB_Hashtable::Insert(int k TM_ARG)
         k_bus = make_pair(k, BUSY);
         k_mem = make_pair(k, MEMBER);
         k_emp = make_pair(k, EMPTY);
-
-        // Bucket(h,i TM_PARAM) = move(k_ins);
-	    // TM_WRITE(Bucket(h,i TM_PARAM), move(k_ins));
-        // TM_WRITE(buckets[pos], move(k_ins));
         buckets[pos] =  move(k_ins);
 
         // std::cout << "H " << h << " I " << i << std::endl;
@@ -158,22 +148,15 @@ bool NB_Hashtable::Insert(int k TM_ARG)
 		        if (buckets[pos] == k_ins)
                 {
                     buckets[pos] = move(k_bus);
-		            // TM_WRITE(buckets[pos], move(k_bus));
-                    //std::atomic_compare_exchange_strong(Bucket(h, j),
-                      //                                  &temp,
-                        //                                BUSY);
                 }
 
                 // Abort if k is already a member
 		        if (buckets[pos] == k_mem)
                 {
                     pos = quad_pos(h.first, i);
-
-		            // TM_WRITE(buckets[pos], move(k_bus));
                     buckets[pos] = move(k_bus);
                     ConditionallyLowerBound(h, i TM_PARAM);
                     buckets[pos] = move(k_emp);
-        		    // TM_WRITE(buckets[pos], move(k_emp));
 
                     return false;
                 }
@@ -183,13 +166,9 @@ bool NB_Hashtable::Insert(int k TM_ARG)
         pos = quad_pos(h.first, i);
         if (buckets[pos] == k_ins)
             buckets[pos] = move(k_mem);
-            // TM_WRITE(buckets[pos], move(k_mem));
 
         // attempt to set bit of <key, state> to member (11)
     }
-    // while (!std::atomic_compare_exchange_weak(Bucket(h,i),
-    //         &temp,
-    //         (k | MEMBER)));
     while(buckets[pos] != k_mem);
 
     return true;
@@ -211,22 +190,17 @@ bool NB_Hashtable::Erase(int k TM_ARG)
         // remove a copy of <k, member>
         // May have to modify this to specify that k's status must be member
         // if that is not a pre-condition for Erase().
-
         pos = quad_pos(h.first, i);
-        WST t = Bucket(h,i TM_PARAM);
         
         if (Bucket(h, i TM_PARAM).second == /*k*/ MEMBER)
         {
 
             // Set status bit to busy (01)
-            //if (std::atomic_compare_exchange_strong(Bucket(h, i), &temp, BUSY))
 	        if (buckets[pos] == k_mem);
             {
 		
                 ConditionallyLowerBound(h, i TM_PARAM);
                 buckets[pos] = move(k_emp);
-		        // TM_WRITE(buckets[pos], k_emp);
-                //Bucket(h, i) = EMPTY;
                 return true;
             }
         }
@@ -240,16 +214,12 @@ TM_CALLABLE
 bool NB_Hashtable::Lookup(int k TM_ARG)
 {
     // hash something
-    int max;
-    
+    int max;    
     WST h = make_pair((k % size), EMPTY);
     max = (GetProbeBound(h TM_PARAM)).first;
-    // std::cout<< "H " << h << "\n" << "MAX " << max << std::endl;
 
     for (auto  i = 0; i <= max; i++)
     {
-        auto t = Bucket(h, i TM_PARAM);
-
         if ((Bucket(h, i TM_PARAM)).second == MEMBER)
         {
             return true;
@@ -283,15 +253,6 @@ void NB_Hashtable::ConditionallyRaiseBound(WST h, int index TM_ARG)
 {
     WST old_bound, new_bound;
 
-    // std::cout << "H " << h << " I::: " << std::endl;
-    // std::cout << "index " << index << std::endl;
-
-    // std::cout << "OLD " << old_bound << "  new_BOU " << new_bound << std::endl;
-
-    // old_bound = bounds[ h.first % size ];
-    // new_bound = std::max(old_bound, index);
-    
-    // std::cout << "OLD " << old_bound << "  new_BOU " << new_bound << std::endl;
     while(true){
 
         old_bound = bounds[h.first % size];
@@ -305,15 +266,6 @@ void NB_Hashtable::ConditionallyRaiseBound(WST h, int index TM_ARG)
             break;
         }
     }
-
-    // do
-    // {
-    //     TM_WRITE(old_bound, bounds[h % size]);
-    //     new_bound = std::max(old_bound, index);
-    // }
-    // while (TM_READ(bounds[ h.first % size ]) != old_bound);
-    // TM_WRITE(bounds[h % size], new_bound);
-    //while (!std::atomic_compare_exchange_weak(&(bounds[h % size]), &old_bound, new_bound));
 }
 
 // Allow maximum < index
@@ -321,31 +273,20 @@ TM_CALLABLE
 void NB_Hashtable::ConditionallyLowerBound(WST h, int index TM_ARG)
 {
     WST bound, expectedFalse, expectedTrue;
-
-    //TM_WRITE(bound,bounds[h % size]);
-
     bound = bounds [h.first % size];
 
     // If scanning bit is set, unset it
     if (bound.second == SCAN_TRUE)
     {
         if(bounds[ h.first % size ] == bound)
-        // if (TM_READ(bounds[h % size])== bound)
-            // TM_WRITE(bounds[h % size], (bound & ~SCAN_TRUE));
             bounds[h.first % size] = make_pair(bound.first, SCAN_FALSE);
-        //std::atomic_compare_exchange_weak(&bounds[h % size], &bound, (bound & ~SCAN_TRUE));
     }
 
     expectedFalse = make_pair(index,SCAN_FALSE);
     if (index > 0)
     {
         while (true)
-        //while (std::atomic_compare_exchange_weak(&bounds[h % size], &expectedFalse, (index | SCAN_TRUE)))
         {
-            // if (TM_READ(bounds[ h.first % size ]) == expectedFalse){
-            //     TM_WRITE(bounds[ h.first % size ], (index | SCAN_TRUE));
-            //     break;
-            // }
             if ((bounds[ h.first % size ]) == expectedFalse){
                 bounds[ h.first % size ] = make_pair(index, SCAN_TRUE);
                 break;
@@ -358,13 +299,10 @@ void NB_Hashtable::ConditionallyLowerBound(WST h, int index TM_ARG)
             }
             expectedTrue = make_pair(index, SCAN_TRUE);
 
-            // if(TM_READ(bounds[ h.first % size ].second)== expectedTrue);
             if(bounds[ h.first % size ] == expectedTrue);
             {
-                // TM_WRITE(bounds[ h.first % size ], make_pai.secondr(i, SCAN_FALSE));
                 bounds[ h.first % size ] = make_pair(i, SCAN_FALSE);
             }
-            //std::atomic_compare_exchange_strong(&bounds[h % size], &expectedTrue, make_pair(i, SCAN_FALSE));
         }
     }
 }
@@ -387,7 +325,6 @@ bool NB_Hashtable::DoesBucketContainCollisions(WST h, int index TM_ARG)
 {
     // <state, key>
     WST k;
-    // TM_WRITE(k, Bucket(h, index TM_PARAM));
     k = Bucket(h, index TM_PARAM);
     // Recover key from <state, key>
     int key = k.second;
