@@ -13,19 +13,33 @@ Modifying [rstm_path]/bench/bmharness.cpp:
 This file will have to be modified to correctly use the Config in a way that our hash set expects. At line 26 there is Config::Config(). This needs to be modified as follows:
 
 Config::Config() :
+
     bmname(""),
+
     duration(4),
+    
     execute(500000),
+    
     threads(1),
+    
     nops_after_tx(0),
+    
     elements(262144),
+    
     lookpct(90),
+    
     inspct(10),
+    
     sets(1),
+    
     ops(1),
+    
     time(0),
+    
     running(true),
+    
     txcount(0)
+
 {
 }
 
